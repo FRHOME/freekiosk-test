@@ -30,16 +30,38 @@ jobs:
       - name: Make Gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Configure Gradle Properties
+      - name: Prepare Gradle Configuration
         run: |
           mkdir -p ~/.gradle
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" >> ~/.gradle/gradle.properties
-          echo "android.useAndroidX=true" >> ~/.gradle/gradle.properties
-          echo "android.enableJetifier=true" >> ~/.gradle/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" > ~/.gradle/gradle.properties
+
+          # Partir du template officiel
+          if [ -f android/gradle.properties.template ]; then
+            cp android/gradle.properties.template android/gradle.properties
+          fi
+
+          # Forcer la mémoire et AndroidX tout en maintenant newArchEnabled=false
+          sed -i '/newArchEnabled/d' android/gradle.properties 2>/dev/null || true
+          sed -i '/org.gradle.jvmargs/d' android/gradle.properties 2>/dev/null || true
+
+          echo "newArchEnabled=false" >> android/gradle.properties
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
-          sed -i '/org.gradle.jvmargs/d' android/gradle.properties 2>/dev/null || true
           echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m" >> android/gradle.properties
+
+      - name: Build Fresh JS Bundle
+        run: |
+          # Nettoyer l'ancien bundle obsolète
+          rm -rf android/app/src/main/assets/index.android.bundle
+          mkdir -p android/app/src/main/assets
+
+          # Compiler le code JS actuel
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/
 
       - name: Build Android Debug APK
         run: |
